@@ -31,10 +31,14 @@ def add(request):
 			# does input validation (full_clean() throws an exception if validation fails)
 			try:
 				task.full_clean() 
-				# if no exception was thrown, form was validated
-				# we proceed to save the task in the database
-				with connection.cursor() as cursor:
-					cursor.executescript(f"INSERT INTO tasktracker_task(user_id, status, due_date, title) VALUES ({request.user.id},'{status}', '{due_date}', '{title}')")				
+
+				# HW3 Comments:
+				# creates + saves a new task object using the ORM - not raw SQL as seen below
+				task.save()
+
+				
+				# with connection.cursor() as cursor:
+					# cursor.executescript(f"INSERT INTO tasktracker_task(user_id, status, due_date, title) VALUES ({request.user.id},'{status}', '{due_date}', '{title}')")				
 			except ValidationError as e:
 				# renders the web page again with an error message
 				return render(request, 'add.html', {"errors": e.message_dict})
@@ -49,8 +53,24 @@ def add(request):
 
 # Deletes a task (based on its primary key) and redirect it back to index page
 def delete(request, pk):
-	# uses ORM to delete the task
-	task = Task.objects.get(id = pk)
-	task.delete()
+	if request.method != 'POST':
+		return HttpResponseRedirect(reverse('tasktracker:index'))
+
+	if not request.user.is_authenticated:
+		return HttpResponseRedirect(reverse('login'))
+
+	try:
+		task = Task.objects.get(id=pk, user=request.user)
+		task.delete()
+	except Task.DoesNotExist:
+		return HttpResponseRedirect(reverse('tasktracker:index'))
+
 	# redirects user to index page
-	return HttpResponseRedirect(reverse(f'tasktracker:index'))
+	return HttpResponseRedirect(reverse('tasktracker:index'))
+
+# HW3 Comments:
+# checks request method type - kicks back to main page if not POST
+# checks whether user is authenticated - kicks back to login page if not
+# tries to get the task based on its primary key and the current user
+# if task does not exist, kicks back to main page (checks both user and pk)
+# if task exists, delete with ORM
